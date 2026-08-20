@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-import fitz  # PyMuPDF
+import pymupdf as fitz
 
 from src.config import MAX_PDF_PAGES, MAX_PDF_SIZE_MB
 

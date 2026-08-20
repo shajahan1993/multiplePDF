@@ -141,7 +141,7 @@ def _render_pdf_preview() -> None:
         "Page", min_value=1, max_value=meta["pages"], value=1, step=1
     )
 
-    import fitz
+    import pymupdf as fitz
 
     doc = fitz.open(stream=meta["bytes"], filetype="pdf")
     try:
@@ -206,14 +206,13 @@ def _render_governance_panel() -> None:
 
 def _render_evaluation_panel() -> None:
     st.subheader("Evaluation Metrics")
+    st.caption("Runs against a bundled sample document set + Q&A dataset, independent of your uploads.")
     if st.button("Run Evaluation"):
-        if st.session_state.index is None or st.session_state.index.is_empty():
-            st.warning("Upload PDFs and build the index before running evaluation.")
-        elif not ANTHROPIC_API_KEY:
+        if not ANTHROPIC_API_KEY:
             st.error("ANTHROPIC_API_KEY is not set. Add it to your .env file to run evaluation.")
         else:
             with st.spinner("Running evaluation against the test Q&A dataset..."):
-                st.session_state.eval_metrics = run_evaluation(st.session_state.index)
+                st.session_state.eval_metrics = run_evaluation()
 
     metrics: EvalMetrics | None = st.session_state.eval_metrics
     if metrics is None:

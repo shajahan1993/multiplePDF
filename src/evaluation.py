@@ -8,8 +8,10 @@ import json
 import time
 from dataclasses import dataclass, field
 
-from src.config import EVAL_DATASET_PATH, GROUNDEDNESS_PASS_THRESHOLD
+from src.chunker import chunk_pages
+from src.config import EVAL_DATASET_PATH, EVAL_PDFS_DIR, GROUNDEDNESS_PASS_THRESHOLD
 from src.embeddings import cosine_similarity, embed_texts
+from src.pdf_processor import validate_and_extract
 from src.rag import RagAnswer, generate_answer
 from src.retriever import HybridIndex
 
@@ -31,6 +33,15 @@ class EvalMetrics:
 def load_eval_dataset() -> list[dict]:
     with open(EVAL_DATASET_PATH, "r", encoding="utf-8") as f:
         return json.load(f)
+
+
+def build_eval_index(pdf_dir=EVAL_PDFS_DIR) -> HybridIndex:
+    """Build a dedicated index from the bundled sample PDFs used by the eval dataset."""
+    chunks = []
+    for pdf_path in sorted(pdf_dir.glob("*.pdf")):
+        pages = validate_and_extract(pdf_path.name, pdf_path.read_bytes())
+        chunks.extend(chunk_pages(pages))
+    return HybridIndex(chunks)
 
 
 def _answer_relevance(question: str, answer: str) -> float:
@@ -62,8 +73,9 @@ def _context_precision_recall(
     return precision, recall
 
 
-def run_evaluation(index: HybridIndex, dataset: list[dict] | None = None) -> EvalMetrics:
+def run_evaluation(index: HybridIndex | None = None, dataset: list[dict] | None = None) -> EvalMetrics:
     dataset = dataset if dataset is not None else load_eval_dataset()
+    index = index if index is not None else build_eval_index()
 
     precisions, recalls, relevances, faithfulnesses = [], [], [], []
     citation_hits, citation_total = 0, 0

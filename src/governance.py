@@ -75,19 +75,23 @@ def _groundedness(answer: str, context_text: str) -> float:
 def evaluate_answer(query: str, result: RagAnswer) -> GovernanceResult:
     context_text = "\n\n".join(item.chunk.text for item in result.retrieved_chunks)
 
-    score = _groundedness(result.answer, context_text)
-    if score >= GROUNDEDNESS_PASS_THRESHOLD:
-        grounded_status, hallucination_risk = "PASS", "LOW"
-    elif score >= GROUNDEDNESS_REVIEW_THRESHOLD:
-        grounded_status, hallucination_risk = "REVIEW", "MEDIUM"
-    else:
-        grounded_status, hallucination_risk = "FAIL", "HIGH"
+    is_insufficient_evidence = result.answer.strip() == INSUFFICIENT_EVIDENCE_MESSAGE
 
-    citation_status: Status
-    if result.answer.strip() == INSUFFICIENT_EVIDENCE_MESSAGE:
-        citation_status = "PASS"
+    if is_insufficient_evidence:
+        # Correctly declining to answer is not a hallucination -- there is no
+        # context to be grounded in, but nothing was fabricated either.
+        score = 1.0
+        grounded_status, hallucination_risk = "PASS", "LOW"
     else:
-        citation_status = "PASS" if result.citations else "FAIL"
+        score = _groundedness(result.answer, context_text)
+        if score >= GROUNDEDNESS_PASS_THRESHOLD:
+            grounded_status, hallucination_risk = "PASS", "LOW"
+        elif score >= GROUNDEDNESS_REVIEW_THRESHOLD:
+            grounded_status, hallucination_risk = "REVIEW", "MEDIUM"
+        else:
+            grounded_status, hallucination_risk = "FAIL", "HIGH"
+
+    citation_status: Status = "PASS" if (is_insufficient_evidence or result.citations) else "FAIL"
 
     injection_status = _check_injection(context_text)
     sensitive_data_status = _check_sensitive_data(context_text + "\n" + result.answer)
