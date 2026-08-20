@@ -22,6 +22,7 @@ def _init_state() -> None:
         "index": None,
         "chat_history": [],  # list of {"query", "result", "governance"}
         "eval_metrics": None,
+        "uploader_key": 0,  # bumped on Reset All to force-clear the file_uploader widget
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -119,6 +120,7 @@ def _render_upload_and_documents() -> None:
         "Drag and drop one or more PDF files here",
         type=["pdf"],
         accept_multiple_files=True,
+        key=f"uploader_{st.session_state.uploader_key}",
     )
     if uploaded_files:
         _handle_uploads(uploaded_files)
@@ -147,7 +149,7 @@ def _render_pdf_preview() -> None:
     try:
         page = doc.load_page(page_number - 1)
         pixmap = page.get_pixmap(dpi=120)
-        st.image(pixmap.tobytes("png"), use_container_width=True)
+        st.image(pixmap.tobytes("png"), width="stretch")
     finally:
         doc.close()
 
@@ -160,7 +162,7 @@ def _render_chat() -> None:
         st.caption("Suggested questions")
         cols = st.columns(len(suggestions))
         for col, suggestion in zip(cols, suggestions):
-            if col.button(suggestion, use_container_width=True):
+            if col.button(suggestion, width="stretch"):
                 _run_query(suggestion)
 
     query = st.chat_input("Ask a question about your uploaded PDFs...")
@@ -237,16 +239,17 @@ def _render_evaluation_panel() -> None:
 def _render_controls() -> None:
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("Clear Chat", use_container_width=True):
+        if st.button("Clear Chat", width="stretch"):
             st.session_state.chat_history = []
             st.rerun()
     with col2:
-        if st.button("Reset All", use_container_width=True):
+        if st.button("Reset All", width="stretch"):
             st.session_state.documents = {}
             st.session_state.chunks = []
             st.session_state.index = None
             st.session_state.chat_history = []
             st.session_state.eval_metrics = None
+            st.session_state.uploader_key += 1  # force-clear the file_uploader widget
             st.rerun()
 
 
